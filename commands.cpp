@@ -9,8 +9,6 @@
 //**************************************************************************************
 
 
-//	global variables
-char* prev_dir = NULL;
 
 
 
@@ -19,16 +17,44 @@ Job::Job(int job_id,const char* command, pid_t pid){
 	this->command = command;
 	this->pid = pid;
 	this->init_time = time(NULL);
+	this->stopped = false;
 }
 void Job::update_init_time(){
 	this->init_time = time(NULL);
 }
 
+int find_next_job_id(vector<Job> jobs){
+	if(jobs.empty()){
+		return 1;
+	}
+	return ++jobs.back().job_id;
 
+}
 
+void remove_finished_jobs(vector<Job>& jobs){
+	vector<Job>::iterator it;
+	for(const auto& job : jobs){
+		pid_t pid = waitpid(job.pid,NULL,WNOHANG);
+		if(pid == -1){
+			perror("smash error: waitpid failed");
+		}
+		else if(pid == 0) {
+			continue;
+		}
+		else {
+		    it = jobs.begin() + job.job_id-1;
+		    jobs.erase(it);
+		}
+
+	}
+
+}
+//	global variables
+char* prev_dir = NULL;
+Job fg_job = Job(-1,"",-1);
 ////////////////////////
 
-int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString)
+int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 {
 	char* cmd; 
 	char* args[MAX_ARG];
@@ -43,7 +69,7 @@ int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString)
 	for (i=1; i<MAX_ARG; i++)
 	{
 		args[i] = strtok(NULL, delimiters); 
-		if (args[i] != NULL) 
+		if (args[i] != NULL)
 			num_arg++; 
  
 	}
@@ -59,12 +85,13 @@ int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString)
 	{
 		if(num_arg > 1){
 
-			cout << "smash error: cd: too many arguments" << endl;
+			perror("smash error: cd: too many arguments");
+			return 1;
 		}
 		else if (!strcmp(args[1],"-")) {
 			if(!prev_dir) {
-				cout << "smash error: cd: OLDPWD not set" << endl;
-				return 0;
+				perror("smash error: cd: OLDPWD not set");
+				return 1;
 			}
 			else {
 				path = prev_dir;
@@ -104,15 +131,10 @@ int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString)
 	
 	else if (!strcmp(cmd, "jobs")) 
 	{
-//		Job eden = Job("Ayelet",123);
-//		eden.job_id = 5;
-//		eden.stopped = true;
-//		jobs.push_back(eden);
-//		cout << jobs.size() << endl;
+		remove_finished_jobs(jobs);
 		for(const auto& job :jobs ){
-//			cout << "entered eden" << endl;
 			cout << "[" <<job.job_id << "] " <<
-					job.command << " " << job.pid << " " << time(NULL) - job.init_time <<
+					job.command << " " << job.pid << " " << difftime(time(NULL),job.init_time) <<
 					" sec";
 			if(job.stopped){
 				cout << " (stopped)" << endl;
@@ -147,14 +169,9 @@ int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString)
 	/*************************************************/
 	else // external command
 	{
- 		int pID = ExeExternal(args, cmdString);
+ 		int pID = ExeExternal(args, cmd);
 
- 		if(!strcmp(args[num_arg-1],"&")){
- 			if(jobs.size()==0){
- 				Job bg_job = Job(1,cmdString,pID);
- 			}
- 			jobs.push_back(bg_job);
- 		}
+
 	 	return 0;
 	}
 	if (illegal_cmd == TRUE)
@@ -170,9 +187,10 @@ int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString)
 // Parameters: external command arguments, external command string
 // Returns: void
 //**************************************************************************************
-int ExeExternal(char *args[MAX_ARG], char* cmdString)
+int ExeExternal(char *args[MAX_ARG], char* cmdString,bool is_bg)
 {
 	int pID;
+	cout << cmdString << endl;
     	switch(pID = fork())
 	{
     		case -1:
@@ -186,6 +204,9 @@ int ExeExternal(char *args[MAX_ARG], char* cmdString)
                		perror("smash error: execv failed");
 
 			default:
+					if(!is_bg){
+						waitpid(pID,NULL,NULL);
+					}
                 	return pID;
 
 	}
@@ -196,41 +217,55 @@ int ExeExternal(char *args[MAX_ARG], char* cmdString)
 // Parameters: command string
 // Returns: 0- if complicated -1- if not
 //**************************************************************************************
-int ExeComp(char* lineSize)
-{
-	char ExtCmd[MAX_LINE_SIZE+2];
-	char *args[MAX_ARG];
-    if ((strstr(lineSize, "|")) || (strstr(lineSize, "<")) || (strstr(lineSize, ">")) || (strstr(lineSize, "*")) || (strstr(lineSize, "?")) || (strstr(lineSize, ">>")) || (strstr(lineSize, "|&")))
-    {
-		// Add your code here (execute a complicated command)
-					
-		/* 
-		your code
-		*/
-	} 
-	return -1;
-}
+//int ExeComp(char* lineSize)
+//{
+//	char ExtCmd[MAX_LINE_SIZE+2];
+//	char *args[MAX_ARG];
+//    if ((strstr(lineSize, "|")) || (strstr(lineSize, "<")) || (strstr(lineSize, ">")) || (strstr(lineSize, "*")) || (strstr(lineSize, "?")) || (strstr(lineSize, ">>")) || (strstr(lineSize, "|&")))
+//    {
+//		// Add your code here (execute a complicated command)
+//
+//		/*
+//		your code
+//		*/
+//	}
+//	return -1;
+//}
 //**************************************************************************************
 // function name: BgCmd
 // Description: if command is in background, insert the command to jobs
 // Parameters: command string, pointer to jobs
 // Returns: 0- BG command -1- if not
 //**************************************************************************************
-int BgCmd(char* lineSize, vector<Job> jobs)
+int BgCmd(char* lineSize, vector<Job>& jobs)
 {
 
 	char* Command;
 	const char* delimiters = " \t\n";
 	char *args[MAX_ARG];
+	int max_job_id = 1, num_arg = 0;
+
+
 	if (lineSize[strlen(lineSize)-2] == '&')
 	{
-		lineSize[strlen(lineSize)-2] = '\0';
 		// Add your code here (execute a in the background)
-					
-		/* 
-		your code
-		*/
-		
+		lineSize[strlen(lineSize)-2] = '\0';
+		Command = strtok(lineSize, delimiters);
+		if (Command == NULL)
+				return 0;
+		args[0] = Command;
+		for (int i=1; i<MAX_ARG; i++)
+		{
+			args[i] = strtok(NULL, delimiters);
+			if (args[i] != NULL)
+				num_arg++;
+		}
+		int pID = ExeExternal(args,Command,true);
+		remove_finished_jobs(jobs);
+		max_job_id = find_next_job_id(jobs);
+		Job bg_job = Job(max_job_id,lineSize,pID);
+		jobs.push_back(bg_job);
+		return 0;
 	}
 	return -1;
 }

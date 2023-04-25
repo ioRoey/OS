@@ -28,9 +28,10 @@ public:
 	void update_init_time();
 
 };
+
 int ExeComp(char* lineSize);
-int BgCmd(char* lineSize, vector<Job> jobs);
-int ExeCmd(vector<Job> jobs, char* lineSize, char* cmdString);
-int ExeExternal(char *args[MAX_ARG], char* cmdString);
+int BgCmd(char* lineSize, vector<Job>& jobs);
+int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString);
+int ExeExternal(char *args[MAX_ARG], char* cmdString, bool is_bg = false);
 #endif
 

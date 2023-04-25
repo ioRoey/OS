@@ -40,8 +40,8 @@ int main(int argc, char *argv[])
 
 	/************************************/
 	// Init globals 
-
 	
+
 
 	L_Fg_Cmd =(char*)malloc(sizeof(char)*(MAX_LINE_SIZE+1));
 	if (L_Fg_Cmd == NULL) 
@@ -55,9 +55,9 @@ int main(int argc, char *argv[])
 		strcpy(cmdString, lineSize);    	
 		cmdString[strlen(lineSize)-1]='\0';
 					// perform a complicated Command
-		if(!ExeComp(lineSize)) continue; 
+//		if(!ExeComp(lineSize)) continue;
 					// background command	
-	 	if(!BgCmd(lineSize, jobs)) continue; 
+	 	if(!BgCmd(lineSize, jobs)) continue;
 					// built in commands
 		ExeCmd(jobs, lineSize, cmdString);
 		

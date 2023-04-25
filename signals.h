@@ -8,7 +8,7 @@
 #include <string.h>
 #include <signal.h>
 #include <iostream>
-#include <vector>
+
 
 void catch_int (int sig_num);
 #endif
