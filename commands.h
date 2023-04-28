@@ -19,12 +19,13 @@ typedef enum { FALSE , TRUE } bool_t;
 class Job {
 public:
 	int job_id;
-	char const *command;
+	char command[MAX_LINE_SIZE];
 	pid_t pid;
 	time_t init_time;
 	bool stopped;
 public:
 	Job(int job_id,const char* command, pid_t pid);
+	Job(const Job &other);
 	void update_init_time();
 
 };
@@ -35,6 +36,7 @@ int BgCmd(char* lineSize, vector<Job>& jobs);
 int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString);
 int ExeExternal(char *args[MAX_ARG], char* cmdString, bool is_bg = false);
 pid_t get_fg_pid();
-
+void invalid_fg_pid();
+void insert_fg_to_jobs(vector<Job>& jobs)
 #endif
 

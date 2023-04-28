@@ -10,5 +10,6 @@
 #include "commands.h"
 
 void catch_int (int sig_num);
+void catch_stop(int sig_num);
 #endif
 

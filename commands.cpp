@@ -21,13 +21,13 @@ Job::Job (int job_id,const char* command, pid_t pid) {
 	this->stopped = false;
 }
 
-//Job::Job (const Job &other) {
-//	this->job_id = other.job_id;
-//	strcpy(this->command ,other.command);
-//	this->pid = other.pid;
-//	this->init_time = other.init_time;
-//	this->stopped = other.stopped;
-//}
+Job::Job (const Job &other) {
+	this->job_id = other.job_id;
+	strcpy(this->command ,other.command);
+	this->pid = other.pid;
+	this->init_time = other.init_time;
+	this->stopped = other.stopped;
+}
 
 void Job::update_init_time(){
 	this->init_time = time(NULL);
@@ -37,7 +37,8 @@ int find_next_job_id(vector<Job>& jobs){
 	if(jobs.empty()){
 		return 1;
 	}
-	return ++jobs.back().job_id;
+	int ret = jobs.back().job_id;
+	return ++ret;
 
 }
 
@@ -150,7 +151,7 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 	{
 		remove_zombie_jobs(jobs);
 		for(const auto& job :jobs ){
-			cout << "[" <<job.job_id << "] " <<	job.command << " " << job.pid << " " << difftime(time(NULL),job.init_time) <<
+			cout << "[" <<job.job_id << "] " <<	job.command << " : " << job.pid << " " << difftime(time(NULL),job.init_time) <<
 					" sec";
 			if(job.stopped){
 				cout << " (stopped)" << endl;
@@ -168,19 +169,20 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "fg")) {
-		if(jobs.empty()){
-			perror("smash error: fg: jobs list is empty");
-			return 0;
-		}
 		vector<Job>::iterator it;
 		if (num_arg == 0)
 		{
+			if(jobs.empty()){
+				perror("smash error: fg: jobs list is empty");
+				return 0;
+			}
 			fg_job = Job(jobs.back());
 			it = jobs.begin() + fg_job.job_id-1;
 			if (kill(fg_job.pid,SIGCONT) == -1) {
 				perror("smash error: kill failed");
 			}
 			jobs.erase(it);
+			cout << fg_job.command << " : "<< fg_job.pid << endl;
 			pid_t pid = waitpid(fg_job.pid,NULL,0);
 			if(pid == -1){
 				perror("smash error: waitpid failed");
@@ -207,6 +209,10 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 				}
 				it = jobs.begin() + fg_job.job_id-1;
 				jobs.erase(it);
+
+				// print the full command
+				cout << fg_job.command << " : " << fg_job.pid << endl;
+
 				pid_t pid = waitpid(fg_job.pid,NULL,0);
 				if (pid == -1){
 					perror("smash error: waitpid failed");
@@ -214,16 +220,55 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 				return 0;
 			}
 		}
-		string err = "smash error: fg: job_id " + job_id + " does not exist";
+		string err = "smash error: fg: job-id " + job_id + " does not exist";
 		perror(err.c_str());
-
 	} 
-	/*************************************************/
-	else if (!strcmp(cmd, "bg")) 
-	{
 
-  		
+	/*************************************************/
+	else if (!strcmp(cmd, "bg")) {
+		string job_id = args[1];
+		string::const_iterator it1 = job_id.begin();
+		while (it1 != job_id.end() && std::isdigit(*it1)) ++it1;
+
+		if (num_arg == 0) {
+			vector<Job>::iterator it;
+			it = jobs.end();
+			// reversed loop
+			//TODO: CHECK IF THERE IS NO STOPPED JOB IN THE LIST
+
+		}
+
+		if ((!job_id.empty() && it1 != job_id.end()) || num_arg > 1){
+			perror("smash error: fg: invalid arguments");
+			return 0;
+		}
+
+		for (auto& job : jobs) {
+			if (job.job_id == stoi(job_id)){
+				if (job.stopped == false) {
+					string err = "smash error: bg: job-id " + job_id + " is already running in the background";
+					perror(err.c_str());
+				}
+				if (kill(fg_job.pid,SIGCONT) == -1) {
+					perror("smash error: kill failed");
+				}
+
+				// print the full command
+				cout << fg_job.command << " : " << fg_job.pid << endl;
+
+				// activate the job in the bg
+				if (kill(fg_job.pid,SIGCONT) == -1) {
+					perror("smash error: kill failed");
+				}
+
+				job.stopped = false;
+				return 0;
+			}
+		}
+		string err = "smash error: fg: job-id " + job_id + " does not exist";
+		perror(err.c_str());
 	}
+
 	/*************************************************/
 	else if (!strcmp(cmd, "quit"))
 	{
@@ -262,13 +307,9 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 			}
 		}
 
-		string err = "smash error: kill: job_id " + job_id + " does not exist";
+		string err = "smash error: kill: job-id " + job_id + " does not exist";
 		perror(err.c_str());
 	}
-
-
-
-
 
 
 	/*************************************************/
@@ -295,7 +336,6 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 int ExeExternal(char *args[MAX_ARG], char* cmdString,bool is_bg)
 {
 	int pID;
-	cout << cmdString << endl;
     	switch(pID = fork())
 	{
     		case -1:
@@ -307,11 +347,15 @@ int ExeExternal(char *args[MAX_ARG], char* cmdString,bool is_bg)
                		// Add your code here (execute an external command)
                		execv(cmdString, args);
                		perror("smash error: execv failed");
+               		return 0;
 
 			default:
 					if(!is_bg){
 						fg_job.pid = pID;
-						waitpid(pID,NULL,0);
+						pid_t pid = waitpid(pID,NULL,0);
+						if (pid == -1){
+							perror("smash error: waitpid failed");
+						}
 					}
                 	return pID;
 
@@ -349,7 +393,7 @@ int BgCmd(char* lineSize, vector<Job>& jobs)
 	char* Command;
 	const char* delimiters = " \t\n";
 	char *args[MAX_ARG];
-	int max_job_id = 1, num_arg = 0;
+	int max_job_id, num_arg = 0;
 
     char full_command[MAX_LINE_SIZE];
 
@@ -381,6 +425,8 @@ pid_t get_fg_pid(){
 	return fg_job.pid;
 }
 
-
+void invalid_fg_pid(){
+	fg_job.pid = -1;
+}
 
 
