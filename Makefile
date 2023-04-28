@@ -13,8 +13,8 @@ commands.o: commands.cpp commands.h
 	$(CXX) $(CXXFLAGS) -c commands.cpp
 smash.o: smash.c commands.h
 	$(CXX) $(CXXFLAGS) -c smash.c
-signals.o: signals.c signals.h
-	$(CXX) $(CXXFLAGS) -c signals.c
+signals.o:  signals.c signals.h  
+	$(CXX) $(CXXFLAGS)  -c signals.c
 # Cleaning old files before new make
 clean:
 	$(RM) $(TARGET) *.o *~ "#"* core.*

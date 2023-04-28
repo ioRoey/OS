@@ -29,9 +29,12 @@ public:
 
 };
 
+
 int ExeComp(char* lineSize);
 int BgCmd(char* lineSize, vector<Job>& jobs);
 int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString);
 int ExeExternal(char *args[MAX_ARG], char* cmdString, bool is_bg = false);
+pid_t get_fg_pid();
+
 #endif
 

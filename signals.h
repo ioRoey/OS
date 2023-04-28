@@ -6,9 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 #include <iostream>
-
+#include "commands.h"
 
 void catch_int (int sig_num);
 #endif

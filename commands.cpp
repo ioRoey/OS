@@ -167,6 +167,48 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
    		
 	} 
 	/*************************************************/
+	else if (!strcmp(cmd, "kill")){
+		if (num_arg != 2) {
+			perror("smash error: kill: invalid arguments");
+			return 0;
+		}
+
+		string sig_num = args[1];
+		string job_id = args[2];
+
+		string::const_iterator it1 = sig_num.begin();
+		it1++; // skip the '-' char
+		string::const_iterator it2 = job_id.begin();
+
+		while (it1 != sig_num.end() && std::isdigit(*it1)) ++it1;
+		while (it2 != job_id.end() && std::isdigit(*it2)) ++it2;
+
+		if ( (*(args[1]) != '-') ||
+				(!sig_num.empty() && it1 != sig_num.end()) ||
+				(!job_id.empty() && it2 != job_id.end()) ){
+			perror("smash error: kill: invalid arguments");
+			return 0;
+		}
+
+		for (const auto& job : jobs) {
+			if (job.job_id == stoi(job_id)){
+				if (kill(job.pid,(args[1][0]-'0')*(-1)) == -1) {
+					perror("smash error: kill failed");
+				}
+				return 0;
+			}
+		}
+
+		string err = "smash error: kill: job_id " + job_id + " does not exist";
+		perror(err.c_str());
+	}
+
+
+
+
+
+
+	/*************************************************/
 	else // external command
 	{
  		int pID = ExeExternal(args, cmd);
@@ -205,6 +247,7 @@ int ExeExternal(char *args[MAX_ARG], char* cmdString,bool is_bg)
 
 			default:
 					if(!is_bg){
+						fg_job.pid = pID;
 						waitpid(pID,NULL,NULL);
 					}
                 	return pID;
@@ -269,4 +312,9 @@ int BgCmd(char* lineSize, vector<Job>& jobs)
 	}
 	return -1;
 }
+
+pid_t get_fg_pid(){
+	return fg_job.pid;
+}
+
 
