@@ -12,18 +12,28 @@
 
 
 
-Job::Job(int job_id,const char* command, pid_t pid){
+Job::Job (int job_id,const char* command, pid_t pid) {
 	this->job_id = job_id;
-	this->command = command;
+	strcpy(this->command,command);
+	this->command[strlen(command)-1] = '\0';
 	this->pid = pid;
 	this->init_time = time(NULL);
 	this->stopped = false;
 }
+
+//Job::Job (const Job &other) {
+//	this->job_id = other.job_id;
+//	strcpy(this->command ,other.command);
+//	this->pid = other.pid;
+//	this->init_time = other.init_time;
+//	this->stopped = other.stopped;
+//}
+
 void Job::update_init_time(){
 	this->init_time = time(NULL);
 }
 
-int find_next_job_id(vector<Job> jobs){
+int find_next_job_id(vector<Job>& jobs){
 	if(jobs.empty()){
 		return 1;
 	}
@@ -31,7 +41,18 @@ int find_next_job_id(vector<Job> jobs){
 
 }
 
-void remove_finished_jobs(vector<Job>& jobs){
+//	global variables
+char* prev_dir = NULL;
+Job fg_job = Job(-1,"",-1);
+
+
+// helper functions
+
+void insert_fg_to_jobs(vector<Job>& jobs) {
+	jobs.insert(jobs.begin() + (fg_job.job_id-1), fg_job);
+}
+
+void remove_zombie_jobs(vector<Job>& jobs){
 	vector<Job>::iterator it;
 	for(const auto& job : jobs){
 		pid_t pid = waitpid(job.pid,NULL,WNOHANG);
@@ -45,13 +66,9 @@ void remove_finished_jobs(vector<Job>& jobs){
 		    it = jobs.begin() + job.job_id-1;
 		    jobs.erase(it);
 		}
-
 	}
-
 }
-//	global variables
-char* prev_dir = NULL;
-Job fg_job = Job(-1,"",-1);
+
 ////////////////////////
 
 int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
@@ -131,10 +148,9 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 	
 	else if (!strcmp(cmd, "jobs")) 
 	{
-		remove_finished_jobs(jobs);
+		remove_zombie_jobs(jobs);
 		for(const auto& job :jobs ){
-			cout << "[" <<job.job_id << "] " <<
-					job.command << " " << job.pid << " " << difftime(time(NULL),job.init_time) <<
+			cout << "[" <<job.job_id << "] " <<	job.command << " " << job.pid << " " << difftime(time(NULL),job.init_time) <<
 					" sec";
 			if(job.stopped){
 				cout << " (stopped)" << endl;
@@ -151,9 +167,56 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
 
 	}
 	/*************************************************/
-	else if (!strcmp(cmd, "fg")) 
-	{
-		
+	else if (!strcmp(cmd, "fg")) {
+		if(jobs.empty()){
+			perror("smash error: fg: jobs list is empty");
+			return 0;
+		}
+		vector<Job>::iterator it;
+		if (num_arg == 0)
+		{
+			fg_job = Job(jobs.back());
+			it = jobs.begin() + fg_job.job_id-1;
+			if (kill(fg_job.pid,SIGCONT) == -1) {
+				perror("smash error: kill failed");
+			}
+			jobs.erase(it);
+			pid_t pid = waitpid(fg_job.pid,NULL,0);
+			if(pid == -1){
+				perror("smash error: waitpid failed");
+			}
+
+			return 0;
+		}
+		// copy the fields of the job to fg_job
+		string job_id = args[1];
+		string::const_iterator it1 = job_id.begin();
+		while (it1 != job_id.end() && std::isdigit(*it1)) ++it1;
+
+		if ((!job_id.empty() && it1 != job_id.end()) || num_arg > 1){
+			perror("smash error: fg: invalid arguments");
+			return 0;
+		}
+
+		for (const auto& job : jobs) {
+			if (job.job_id == stoi(job_id)){
+				fg_job = Job(job);
+
+				if (kill(fg_job.pid,SIGCONT) == -1) {
+					perror("smash error: kill failed");
+				}
+				it = jobs.begin() + fg_job.job_id-1;
+				jobs.erase(it);
+				pid_t pid = waitpid(fg_job.pid,NULL,0);
+				if (pid == -1){
+					perror("smash error: waitpid failed");
+				}
+				return 0;
+			}
+		}
+		string err = "smash error: fg: job_id " + job_id + " does not exist";
+		perror(err.c_str());
+
 	} 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg")) 
@@ -167,7 +230,7 @@ int ExeCmd(vector<Job>& jobs, char* lineSize, char* cmdString)
    		
 	} 
 	/*************************************************/
-	else if (!strcmp(cmd, "kill")){
+	else if (!strcmp(cmd, "kill")) {
 		if (num_arg != 2) {
 			perror("smash error: kill: invalid arguments");
 			return 0;
@@ -248,7 +311,7 @@ int ExeExternal(char *args[MAX_ARG], char* cmdString,bool is_bg)
 			default:
 					if(!is_bg){
 						fg_job.pid = pID;
-						waitpid(pID,NULL,NULL);
+						waitpid(pID,NULL,0);
 					}
                 	return pID;
 
@@ -288,25 +351,26 @@ int BgCmd(char* lineSize, vector<Job>& jobs)
 	char *args[MAX_ARG];
 	int max_job_id = 1, num_arg = 0;
 
+    char full_command[MAX_LINE_SIZE];
 
 	if (lineSize[strlen(lineSize)-2] == '&')
 	{
+		strcpy(full_command, lineSize);
 		// Add your code here (execute a in the background)
 		lineSize[strlen(lineSize)-2] = '\0';
 		Command = strtok(lineSize, delimiters);
 		if (Command == NULL)
 				return 0;
 		args[0] = Command;
-		for (int i=1; i<MAX_ARG; i++)
-		{
+		for (int i=1; i<MAX_ARG; i++) {
 			args[i] = strtok(NULL, delimiters);
 			if (args[i] != NULL)
 				num_arg++;
 		}
 		int pID = ExeExternal(args,Command,true);
-		remove_finished_jobs(jobs);
+		remove_zombie_jobs(jobs);
 		max_job_id = find_next_job_id(jobs);
-		Job bg_job = Job(max_job_id,lineSize,pID);
+		Job bg_job = Job(max_job_id,full_command,pID);
 		jobs.push_back(bg_job);
 		return 0;
 	}
@@ -316,5 +380,7 @@ int BgCmd(char* lineSize, vector<Job>& jobs)
 pid_t get_fg_pid(){
 	return fg_job.pid;
 }
+
+
 
 
