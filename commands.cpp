@@ -51,7 +51,26 @@ int find_next_job_id(){
 
 }
 
+
+void remove_zombie_jobs(){
+	vector<Job>::iterator it = jobs.begin();
+	for(const auto& job : jobs){
+		pid_t pid = waitpid(job.pid,NULL,WNOHANG);
+		if(pid == -1){
+			perror("smash error: waitpid failed");
+			return;
+		}
+		else if(pid == 0) {
+			it++;
+		}
+		else {
+		    jobs.erase(it);
+		}
+	}
+}
+
 void insert_fg_to_jobs() {
+	remove_zombie_jobs();
 	fg_job.stopped =  true;
 	fg_job.update_init_time();
 	if (fg_job.job_id == -1) {
@@ -61,23 +80,6 @@ void insert_fg_to_jobs() {
 		return;
 	}
 	jobs.insert(jobs.begin() + (fg_job.job_id-1), fg_job);
-}
-
-void remove_zombie_jobs(vector<Job>& jobs){
-	vector<Job>::iterator it;
-	for(const auto& job : jobs){
-		pid_t pid = waitpid(job.pid,NULL,WNOHANG);
-		if(pid == -1){
-			perror("smash error: waitpid failed");
-		}
-		else if(pid == 0) {
-			continue;
-		}
-		else {
-		    it = jobs.begin() + job.job_id-1;
-		    jobs.erase(it);
-		}
-	}
 }
 
 ////////////////////////
@@ -103,6 +105,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	}
 	const char* path;
 
+	remove_zombie_jobs();
 
 /*************************************************/
 // Built in Commands PLEASE NOTE NOT ALL REQUIRED
@@ -123,12 +126,14 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			}
 			else {
 				path = prev_dir;
+				prev_dir = get_current_dir_name();
 			}
 		}
 		else {
 			prev_dir = get_current_dir_name();
 			if(!prev_dir){
 				perror("smash error: get_current_dir_name failed");
+				return 0;
 			}
 			path = args[1];
 		}
@@ -184,7 +189,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	
 	else if (!strcmp(cmd, "jobs")) 
 	{
-		remove_zombie_jobs(jobs);
+//		remove_zombie_jobs();
 		for(const auto& job :jobs ){
 			cout << "[" <<job.job_id << "] " <<	job.command << " : " << job.pid << " " << difftime(time(NULL),job.init_time) <<
 					" sec";
@@ -221,7 +226,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 				perror("smash error: kill failed");
 			}
 
-			it = jobs.begin() + fg_job.job_id-1;
+			it = jobs.end();
 			jobs.erase(it);
 			pid_t pid = waitpid(fg_job.pid,NULL,WUNTRACED);
 			if(pid == -1){
@@ -251,7 +256,8 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 				if (kill(fg_job.pid,SIGCONT) == -1) {
 					perror("smash error: kill failed");
 				}
-				it = jobs.begin() + fg_job.job_id-1;
+
+
 				jobs.erase(it);
 
 				pid_t pid = waitpid(fg_job.pid,NULL,WUNTRACED);
@@ -261,6 +267,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 				invalid_fg_pid();
 				return 0;
 			}
+			it++;
 		}
 		string err = "smash error: fg: job-id " + job_id + " does not exist";
 		perror(err.c_str());
@@ -314,9 +321,11 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 				if (job.stopped == false) {
 					string err = "smash error: bg: job-id " + job_id + " is already running in the background";
 					perror(err.c_str());
+					return 0;
 				}
 				if (kill(job.pid,SIGCONT) == -1) {
 					perror("smash error: kill failed");
+					return 0;
 				}
 
 				// print the full command
@@ -325,6 +334,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 				// activate the job in the bg
 				if (kill(job.pid,SIGCONT) == -1) {
 					perror("smash error: kill failed");
+					return 0;
 				}
 
 				job.stopped = false;
@@ -398,6 +408,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			if (job.job_id == stoi(job_id)){
 				if (kill(job.pid,stoi(sig_num)*(-1)) == -1) {
 					perror("smash error: kill failed");
+					return 0;
 				}
 				cout << "signal number " << stoi(sig_num)*(-1) << " was sent to pid " << job.pid << endl;
 				return 0;
@@ -513,7 +524,7 @@ int BgCmd(char* lineSize) //vector<Job>& jobs - FIX
 				num_arg++;
 		}
 		int pID = ExeExternal(full_command,args,Command,true);
-		remove_zombie_jobs(jobs);
+		remove_zombie_jobs();
 		max_job_id = find_next_job_id();
 		Job bg_job = Job(max_job_id,full_command,pID);
 		jobs.push_back(bg_job);
