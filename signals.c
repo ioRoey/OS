@@ -14,8 +14,11 @@ void catch_int (int sig_num) {
 	pid_t pid = get_fg_pid();
 	if (pid != -1) {
 		cout << "smash: process " << pid << " was killed" << endl;
-		kill(pid, SIGKILL);
 		invalid_fg_pid();
+		if(kill(pid, SIGKILL) == -1){
+			perror("smash : kill failed");
+		}
+
 	}
 }
 
@@ -24,8 +27,12 @@ void catch_stop (int sig_num) {
 	pid_t pid = get_fg_pid();
 	if (pid != -1) {
 		cout << "smash: process " << pid << " was stopped" << endl;
-		kill(pid, SIGSTOP);
-		insert_fg_to_jobs(vector<Job>& jobs) // finish after convert smash to class
-		invalid_fg_pid();
+		insert_fg_to_jobs(); // finish after convert smash to class
+	    invalid_fg_pid();
+		if(kill(pid, SIGSTOP) == -1 ){
+			perror("smash: kill failed");
+		}
+		return;
+
 	}
 }
