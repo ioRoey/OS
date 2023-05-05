@@ -125,6 +125,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 /*************************************************/
 	if (!strcmp(cmd, "cd") ) 
 	{
+		char* tmp_prev_dir;
 		if(num_arg > 1){
 
 			perror("smash error: cd: too many arguments");
@@ -137,12 +138,12 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			}
 			else {
 				path = prev_dir;
-				prev_dir = get_current_dir_name();
+				tmp_prev_dir = get_current_dir_name();
 			}
 		}
 		else {
-			prev_dir = get_current_dir_name();
-			if(!prev_dir){
+			tmp_prev_dir = get_current_dir_name();
+			if(!tmp_prev_dir){
 				perror("smash error: get_current_dir_name failed");
 				return 0;
 			}
@@ -150,7 +151,9 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		}
 		if(chdir(path)){
 			perror("smash error: chdir failed");
+			return 0;
 		}
+		prev_dir = tmp_prev_dir;
 	} 
 	
 	/*************************************************/
@@ -294,7 +297,10 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg")) {
-
+		if(jobs.empty()){
+			perror("smash error: there are no stopped jobs to resume");
+			return 0;
+		}
 
 		if (num_arg == 0) {
 
