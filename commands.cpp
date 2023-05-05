@@ -18,6 +18,9 @@ Job::Job (int job_id,const char* command, pid_t pid) {
 	this->command[strlen(command)-1] = '\0';
 	this->pid = pid;
 	this->init_time = time(NULL);
+	if(this->init_time == -1){
+		perror("smash error: time failed");
+	}
 	this->stopped = false;
 }
 
@@ -31,6 +34,9 @@ Job::Job (const Job &other) {
 
 void Job::update_init_time(){
 	this->init_time = time(NULL);
+	if(this->init_time == -1){
+		perror("smash error: time failed");
+	}
 }
 
 
@@ -94,7 +100,6 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 {
 	char* cmd; 
 	char* args[MAX_ARG];
-	char pwd[MAX_LINE_SIZE];
 	const char* delimiters = " \t\n";
 	int i = 0, num_arg = 0;
 	bool illegal_cmd = FALSE; // illegal command
@@ -200,7 +205,12 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	{
 		remove_zombie_jobs();
 		for(const auto& job :jobs ){
-			cout << "[" <<job.job_id << "] " <<	job.command << " : " << job.pid << " " << difftime(time(NULL),job.init_time) <<
+			time_t curr_time = time(NULL);
+			if(curr_time == -1){
+				perror("smash error: time failed");
+				return 0;
+			}
+			cout << "[" <<job.job_id << "] " <<	job.command << " : " << job.pid << " " << difftime(curr_time,job.init_time) <<
 					" sec";
 			if(job.stopped){
 				cout << " (stopped)" << endl;
@@ -368,6 +378,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 					pid_t pid = waitpid(job.pid,NULL,WNOHANG);
 					if(pid == -1){
 						perror("smash error: waitpid failed");
+						return 0;
 					}
 					else if(pid == 0) {
 						if(kill(job.pid,SIGKILL) == -1){
@@ -433,7 +444,9 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	else // external command
 	{
  		int pID = ExeExternal(cmdString,args, cmd);
-
+ 		if(pID == -1){
+ 			return 0;
+ 		}
 
 	 	return 0;
 	}
@@ -464,7 +477,7 @@ int ExeExternal(char* full_command, char *args[MAX_ARG], char* cmdString,bool is
                		// Add your code here (execute an external command)
                		execv(cmdString, args);
                		perror("smash error: execv failed");
-               		return 0;
+               		return -1;
 
 			default:
 					if(!is_bg){
