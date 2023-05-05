@@ -1,7 +1,7 @@
 # Makefile for the smash program
 # need to add -Werror
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall    -pedantic-errors -DNDEBUG
+CXXFLAGS = -std=c++11 -Wall -Werror  -pedantic-errors -DNDEBUG
 CCLINK = $(CXX)
 OBJS = smash.o commands.o signals.o
 RM = rm -f
@@ -17,5 +17,5 @@ signals.o:  signals.cpp signals.h
 	$(CXX) $(CXXFLAGS)  -c signals.cpp
 # Cleaning old files before new make
 clean:
-	$(RM) $(TARGET) *.o *~ "#"* core.*
+	$(RM) $(TARGET) *.o *~ "#"* core.* smash
 
