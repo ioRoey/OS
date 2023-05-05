@@ -11,10 +11,10 @@ smash: $(OBJS)
 # Creating the object files
 commands.o: commands.cpp commands.h
 	$(CXX) $(CXXFLAGS) -c commands.cpp
-smash.o: smash.c commands.h
-	$(CXX) $(CXXFLAGS) -c smash.c
-signals.o:  signals.c signals.h  
-	$(CXX) $(CXXFLAGS)  -c signals.c
+smash.o: smash.cpp commands.h
+	$(CXX) $(CXXFLAGS) -c smash.cpp
+signals.o:  signals.cpp signals.h  
+	$(CXX) $(CXXFLAGS)  -c signals.cpp
 # Cleaning old files before new make
 clean:
 	$(RM) $(TARGET) *.o *~ "#"* core.*

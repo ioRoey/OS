@@ -69,7 +69,7 @@ void remove_zombie_jobs(){
 	}
 }
 
-void insert_fg_to_jobs() {
+void insert_fg_to_jobs() { //used only after Ctrl-Z
 	remove_zombie_jobs();
 	fg_job.stopped =  true;
 	fg_job.update_init_time();
@@ -79,7 +79,13 @@ void insert_fg_to_jobs() {
 		jobs.push_back(fg_job);
 		return;
 	}
-	jobs.insert(jobs.begin() + (fg_job.job_id-1), fg_job);
+	vector<Job>::iterator it = jobs.begin();
+	while(it->job_id <= fg_job.job_id && it != jobs.end())
+	{
+		it++;
+	}
+
+	jobs.insert(it, fg_job);
 }
 
 ////////////////////////
@@ -164,6 +170,9 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
  		}
  		FILE* f1 = fopen(args[1],"r");
  		FILE* f2 = fopen(args[2],"r");
+ 		if(!f1 || !f2){
+ 			return 0;
+ 		}
  		char ch1,ch2;
 
 		do {
@@ -189,7 +198,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	
 	else if (!strcmp(cmd, "jobs")) 
 	{
-//		remove_zombie_jobs();
+		remove_zombie_jobs();
 		for(const auto& job :jobs ){
 			cout << "[" <<job.job_id << "] " <<	job.command << " : " << job.pid << " " << difftime(time(NULL),job.init_time) <<
 					" sec";
@@ -245,7 +254,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			perror("smash error: fg: invalid arguments");
 			return 0;
 		}
-
+		it = jobs.begin();
 		for (const auto& job : jobs) {
 			if (job.job_id == stoi(job_id)){
 				fg_job = Job(job);
@@ -354,7 +363,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 					if( kill(job.pid,SIGTERM) == -1) {
 						perror("smash error : kill failed");
 					}
-					cout << "[" <<job.job_id << "] " <<	job.command << " - Sending SIGTERM...";
+					cout << "[" <<job.job_id << "] " <<	job.command << " – Sending SIGTERM...";
 					sleep(5);
 					pid_t pid = waitpid(job.pid,NULL,WNOHANG);
 					if(pid == -1){
@@ -364,10 +373,10 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 						if(kill(job.pid,SIGKILL) == -1){
 							perror("smash error : kill failed");
 						}
-						cout << " (5 sec passed) Sending SIGKILL... DONE" << endl;
+						cout << " (5 sec passed) Sending SIGKILL... Done." << endl;
 					}
 					else {
-						cout << " DONE" <<endl;
+						cout << " Done." <<endl;
 					}
 
 				}
