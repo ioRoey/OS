@@ -301,12 +301,17 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg")) {
-		if(jobs.empty()){
-			cerr << "smash error: bg: there are no stopped jobs to resume" <<endl;
+		if(num_arg > 1) {
+			cerr << "smash error: bg: invalid arguments" << endl;
 			return 0;
 		}
 
+
 		if (num_arg == 0) {
+			if(jobs.empty()){
+				cerr << "smash error: bg: there are no stopped jobs to resume" <<endl;
+				return 0;
+			}
 
 			// find the "highest" stopped job using a reversed loop
 			auto it = jobs.end();
@@ -337,6 +342,10 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			return 0;
 		}
 		string job_id = args[1];
+		if(jobs.empty()){
+			cerr << "smash error: bg: job-id " << job_id << " does not exist" <<endl;
+			return 0;
+		}
 		string::const_iterator it1 = job_id.begin();
 		while (it1 != job_id.end() && std::isdigit(*it1)) ++it1;
 
