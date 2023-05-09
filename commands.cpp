@@ -128,17 +128,21 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		char* tmp_prev_dir;
 		if(num_arg > 1){
 
-			perror("smash error: cd: too many arguments");
+			cerr << "smash error: cd: too many arguments" << endl;
 			return 1;
 		}
 		else if (!strcmp(args[1],"-")) {
 			if(!prev_dir) {
-				perror("smash error: cd: OLDPWD not set");
+				cerr << "smash error: cd: OLDPWD not set" << endl;
 				return 1;
 			}
 			else {
 				path = prev_dir;
 				tmp_prev_dir = get_current_dir_name();
+				if(!tmp_prev_dir){
+					perror("smash error: get_current_dir_name failed");
+					return 0;
+				}
 			}
 		}
 		else {
@@ -173,7 +177,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	else if (!strcmp(cmd, "diff"))
 	{
  		if(num_arg != 2){
- 			perror("smash error: diff: invalid arguments");
+ 			cerr << "smash error: diff: invalid arguments" <<endl;
  			return 0;
  		}
  		FILE* f1 = fopen(args[1],"r");
@@ -235,7 +239,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		if (num_arg == 0)
 		{
 			if(jobs.empty()){
-				perror("smash error: fg: jobs list is empty");
+				cerr << "smash error: fg: jobs list is empty" <<endl;
 				return 0;
 			}
 
@@ -264,7 +268,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		while (it1 != job_id.end() && std::isdigit(*it1)) ++it1;
 
 		if ((!job_id.empty() && it1 != job_id.end()) || num_arg > 1){
-			perror("smash error: fg: invalid arguments");
+			cerr << "smash error: fg: invalid arguments" << endl;
 			return 0;
 		}
 		it = jobs.begin();
@@ -292,13 +296,13 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			it++;
 		}
 		string err = "smash error: fg: job-id " + job_id + " does not exist";
-		perror(err.c_str());
+		cerr << err.c_str() << endl;
 	} 
 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg")) {
 		if(jobs.empty()){
-			perror("smash error: there are no stopped jobs to resume");
+			cerr << "smash error: bg: there are no stopped jobs to resume" <<endl;
 			return 0;
 		}
 
@@ -328,8 +332,8 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 				it--;
 			}
 
-			string err = "smash error: there are no stopped jobs to resume";
-			perror(err.c_str());
+			string err = "smash error: bg: there are no stopped jobs to resume";
+			cerr << err.c_str() << endl;
 			return 0;
 		}
 		string job_id = args[1];
@@ -337,7 +341,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		while (it1 != job_id.end() && std::isdigit(*it1)) ++it1;
 
 		if ((!job_id.empty() && it1 != job_id.end()) || num_arg > 1){
-			perror("smash error: bg: invalid arguments");
+			cerr << "smash error: bg: invalid arguments" << endl;
 			return 0;
 		}
 
@@ -345,7 +349,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			if (job.job_id == stoi(job_id)){
 				if (job.stopped == false) {
 					string err = "smash error: bg: job-id " + job_id + " is already running in the background";
-					perror(err.c_str());
+					cerr << err.c_str() << endl;
 					return 0;
 				}
 				if (kill(job.pid,SIGCONT) == -1) {
@@ -367,7 +371,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 			}
 		}
 		string err = "smash error: bg: job-id " + job_id + " does not exist";
-		perror(err.c_str());
+		cerr << err.c_str() << endl;
 	}
 
 	/*************************************************/
@@ -409,7 +413,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 	/*************************************************/
 	else if (!strcmp(cmd, "kill")) {
 		if (num_arg != 2) {
-			perror("smash error: kill: invalid arguments");
+			cerr <<"smash error: kill: invalid arguments" << endl;
 			return 0;
 		}
 
@@ -426,7 +430,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		if ( (*(args[1]) != '-') ||
 				(!sig_num.empty() && it1 != sig_num.end()) ||
 				(!job_id.empty() && it2 != job_id.end()) ){
-			perror("smash error: kill: invalid arguments");
+			cerr <<"smash error: kill: invalid arguments" << endl;
 			return 0;
 		}
 
@@ -442,7 +446,7 @@ int ExeCmd(char* lineSize, char* cmdString) // vector<Job>& jobs - FIX
 		}
 
 		string err = "smash error: kill: job-id " + job_id + " does not exist";
-		perror(err.c_str());
+		cerr << err.c_str() <<endl;
 	}
 
 
